@@ -171,7 +171,7 @@ Rules:
 
 | Component | Writes on-chain? | Role |
 |---|---|---|
-| Frontend (Next.js, wagmi/viem) | No, users sign | Create, fund, submit, review, claim, buy. Circle Wallets for contributors new to crypto. |
+| Frontend (Vue 3 + Vite + TypeScript; viem + @wagmi/vue for wallet and contract calls; Pinia for state) | No, users sign | Create, fund, submit, review, claim, buy. Circle Wallets for contributors new to crypto. |
 | Indexer (Ponder or similar) | No | Feeds the UI, catalog, and agent |
 | Quality agent | **No** | Pre-screens submissions: format checks, duplicate and plagiarism detection, LLM scoring against `specHash`, hidden test questions. Shows score and flags to reviewers. |
 | Key-release service | No | Checks License on-chain, releases the dataset decryption key. Run in a TEE (Nitro Enclave). |
