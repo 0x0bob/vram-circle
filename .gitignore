@@ -4,3 +4,4 @@ broadcast/
 .env
 .tools/
 node_modules/
+.venv/
