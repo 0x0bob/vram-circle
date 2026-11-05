@@ -97,8 +97,9 @@ contract VaultHandler is Test {
 
     function closeTask(uint256 taskSeed) external {
         if (vault.taskCount() == 0) return;
+        uint256 t = (taskSeed % vault.taskCount()) + 1; // compute before prank: prank covers only the next call
         vm.prank(creator);
-        try vault.closeTask((taskSeed % vault.taskCount()) + 1) {} catch {}
+        try vault.closeTask(t) {} catch {}
     }
 
     function withdraw(uint256 amt) external {
