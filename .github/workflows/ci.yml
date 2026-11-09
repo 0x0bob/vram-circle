@@ -55,3 +55,63 @@ jobs:
       # (incident: FeeRouter incorrect-equality) is an inline slither-disable comment.
       - name: Slither
         run: slither . --exclude-dependencies --fail-medium
+
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: forge build (source of the generated ABIs)
+        run: forge build
+
+      - name: Generated ABIs are up to date
+        run: |
+          node scripts/gen-abis.mjs
+          git diff --exit-code -- app/src/generated/abis.ts || {
+            echo "::error::app/src/generated/abis.ts is out of date. Run: forge build && node scripts/gen-abis.mjs"
+            exit 1
+          }
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: app
+
+      - name: Unit and component tests (Vitest)
+        run: npm test
+        working-directory: app
+
+      - name: Build
+        run: npm run build
+        working-directory: app
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: app
+
+      - name: End-to-end test on Anvil
+        run: node scripts/e2e.mjs
+        env:
+          SCREENSHOT_DIR: ${{ runner.temp }}/screenshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: ignore

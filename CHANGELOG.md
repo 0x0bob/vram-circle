@@ -38,3 +38,15 @@
   Fixed in `closeTask` of `VaultHandler` (step 1), so closeTask is now really exercised by that invariant suite.
 - Known design limit for invariant 6: the timelock can re-point `feeRouter` and `treasury` after the 48h delay.
   That is the intended timelocked power, not a hidden path; the handler only points them at known addresses.
+
+## Unreleased: Step 3 (frontend)
+
+- `/app`: Vue 3 + Vite + TypeScript, viem, @wagmi/vue, Pinia, Vue Router. Pages: connect wallet (injected first,
+  Circle Wallets hook is TODO(verify)), creator dashboard, project and task pages, reviewer queue, contributor page.
+- Every write is a wallet-signed transaction; reads come from the chain via viem. No backend, no keys.
+- ABIs are generated from the Foundry build (`scripts/gen-abis.mjs`); CI fails if `app/src/generated/abis.ts` is stale.
+- Local dev: `node scripts/dev.mjs` (Anvil + `script/DeployLocal.s.sol` with MockUSDC + steps 1-2 + test USDC + app).
+- Tests: 32 Vitest tests; one Playwright e2e on Anvil (create, fund, task, submit, approve, claim, auto-approve via
+  time travel, close, withdraw). CI job `app` runs typecheck, Vitest, build and the e2e.
+- TypeScript pinned to 5.9: latest (7.0) is newer than the Vue tooling supports.
+- `script/Deploy.s.sol` now shares `_deployProtocol` with `DeployLocal` (same deploy order and addresses).
