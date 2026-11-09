@@ -113,6 +113,7 @@ contract ProjectVault is Initializable, ReentrancyGuard {
     );
     event UnreservedWithdrawn(address indexed to, uint256 amount);
 
+    error ZeroAddress();
     error NotCreator();
     error NotReviewerOrCreator();
     error NotContributor();
@@ -162,6 +163,9 @@ contract ProjectVault is Initializable, ReentrancyGuard {
         uint32 reviewPeriod_,
         string calldata metadataURI_
     ) external initializer {
+        if (creator_ == address(0) || factory_ == address(0) || usdc_ == address(0)) {
+            revert ZeroAddress();
+        }
         creator = creator_;
         factory = IProjectFactory(factory_);
         usdc = IERC20(usdc_);

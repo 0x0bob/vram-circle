@@ -313,6 +313,8 @@ Then update NatSpec, docs, and `CHANGELOG.md`. Keep commits small with messages 
 - **Creators can copy work before rejecting it.** Content is visible during review. The MVP limits this with required rejection reasons and public rejection rates per creator. Later options: encrypted submissions or partial previews.
 - **Quality depends on reviewers.** The agent helps, but a lazy creator can approve bad work. Buyers see each project's approval stats in the catalog.
 - **Key-release is the one trusted service.** It can't move funds, but it can fail to deliver keys. Run it in a TEE and log every release.
+- **Timelock delay floor is silent.** A governance `updateDelay` below 48h does not revert; it has no effect, because `getMinDelay()` returns at least 48h. OpenZeppelin v5.1 does not allow reverting here without forking `TimelockController`. Governance tooling should not assume a lower delay took effect.
+- **Governance can re-point fee destinations.** After the 48h delay, governance can change the factory's fee router and the router's treasury address. This affects protocol fees only, never user deposits or contributor payouts (rewards are paid directly from the vault to the contributor).
 
 ## 12. Open questions (ask before deciding)
 
