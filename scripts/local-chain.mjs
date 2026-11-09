@@ -1,7 +1,7 @@
 // Starts Anvil, deploys MockUSDC + steps 1-2 (script/DeployLocal.s.sol) and returns the app env.
 // Used by scripts/dev.mjs and scripts/e2e.mjs. Works without Arc. Local test keys only.
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join, delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -47,6 +47,7 @@ export async function startLocalChain({ port = 8545 } = {}) {
   const stop = () => anvil.kill()
   try {
     await waitForRpc(rpcUrl)
+    mkdirSync(join(root, 'deployments'), { recursive: true }) // absent in a clean checkout
     const forge = findBin('forge')
     const r = spawnSync(
       forge,
