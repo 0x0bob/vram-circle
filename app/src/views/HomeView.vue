@@ -11,14 +11,24 @@ const { address, isConnected } = useConnection()
 const input = ref('')
 const mine = ref<Address[]>([])
 const error = ref('')
+/** True when reading the chain failed: that must never look like "you have no projects". */
+const loadFailed = ref(false)
 
-watch(
-  address,
-  async (a) => {
-    mine.value = a ? await findProjects(a).catch(() => []) : []
-  },
-  { immediate: true },
-)
+async function loadMine() {
+  if (!address.value) {
+    mine.value = []
+    loadFailed.value = false
+    return
+  }
+  try {
+    mine.value = await findProjects(address.value)
+    loadFailed.value = false
+  } catch {
+    loadFailed.value = true
+  }
+}
+
+watch(address, () => void loadMine(), { immediate: true })
 
 function open() {
   if (!isAddress(input.value.trim(), { strict: false })) {
@@ -65,6 +75,10 @@ function open() {
   <section class="card">
     <h2>Projects I created</h2>
     <p v-if="!isConnected" class="muted">Connect your wallet to see your projects.</p>
+    <p v-else-if="loadFailed" class="note" data-testid="projects-error">
+      Could not load your projects. The network is probably busy.
+      <button class="secondary" data-testid="projects-retry" @click="loadMine">Retry</button>
+    </p>
     <p v-else-if="mine.length === 0" class="muted">None yet. Create one on the <router-link to="/creator">Creator</router-link> page.</p>
     <ul v-else class="list">
       <li v-for="v in mine" :key="v">
