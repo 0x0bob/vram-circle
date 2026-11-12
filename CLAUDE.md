@@ -316,9 +316,12 @@ Then update NatSpec, docs, and `CHANGELOG.md`. Keep commits small with messages 
 - **Timelock delay floor is silent.** A governance `updateDelay` below 48h does not revert; it has no effect, because `getMinDelay()` returns at least 48h. OpenZeppelin v5.1 does not allow reverting here without forking `TimelockController`. Governance tooling should not assume a lower delay took effect.
 - **Governance can re-point fee destinations.** After the 48h delay, governance can change the factory's fee router and the router's treasury address. This affects protocol fees only, never user deposits or contributor payouts (rewards are paid directly from the vault to the contributor).
 
+- **Testnet roles are plain wallets, not multisigs.** On Arc testnet the treasury and guardian are two separate externally owned accounts chosen by the project owner. **Real multisigs are required before mainnet:** a single key holding the guardian can pause new projects, tasks and submissions, and a single key holding the treasury is the timelock's only proposer and executor, so it controls every parameter change after the 48h delay. Mainnet deploys are blocked in `script/Deploy.s.sol` (chain 5042) until this file says otherwise.
+- **Arc USDC is native-backed, with two decimal scales.** The ERC-20 interface at `0x3600...0000` has 6 decimals, but its balance is the account's native gas balance scaled from 18 decimals (`balanceOf(x) == x.balance / 1e12`, observed on testnet). Always use the ERC-20 interface for payments and label gas separately. Depositing USDC into a vault lowers the wallet's gas balance, because they are the same money. The real token also calls Arc system precompiles (`0x1800...0000` native transfer, `0x1800...0001` blocklist) that Foundry cannot run; the fork tests emulate them (`test/fork/ArcPrecompileEmu.sol`, inferred from call traces), so the testnet smoke test is the authoritative check.
+
 ## 12. Open questions (ask before deciding)
 
-- Arc USDC address, chain ID, and gas sponsorship support: check Circle's docs.
+- Arc USDC address and testnet chain ID: answered (testnet 5042002, USDC `0x3600...0000`, source docs.arc.io, verified by the project owner Nov 2026). Mainnet values are recorded in the app config but unused. Gas sponsorship support is still open.
 - Default license split (suggested 50% creator / 50% contributors).
 - Default and minimum review period (suggested 7 days default, 3 days minimum).
 - Who sits on the guardian multisig.

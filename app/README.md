@@ -26,5 +26,6 @@ CI fails if the file is out of date.
 
 ## Pending
 
-- TODO(verify): Circle Wallets connector (`src/wallets/circle.ts`), Arc chain details (`src/config.ts`).
+- TODO(verify): Circle Wallets connector (`src/wallets/circle.ts`).
+- Arc testnet values (chain 5042002, RPC, explorer, USDC) are in `src/networks.ts`, from docs.arc.io as verified by the project owner. Mainnet (5042) is defined but refused.
 - The indexer will replace the event scans in `src/services/chain.ts`.

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTxStore } from '../stores/tx'
+import { explorerTx } from '../config'
 
 const tx = useTxStore()
 </script>
@@ -11,6 +12,7 @@ const tx = useTxStore()
       <span v-if="e.status === 'pending'"> — confirm in your wallet, then wait for the block…</span>
       <span v-else-if="e.status === 'success'"> — done</span>
       <span v-else> — failed: {{ e.message }}</span>
+      <a v-if="e.hash && explorerTx(e.hash)" :href="explorerTx(e.hash)!" target="_blank" rel="noopener" class="muted">view tx</a>
       <button class="link" aria-label="Dismiss" @click="tx.dismiss(e.id)">✕</button>
     </div>
   </div>

@@ -25,6 +25,7 @@ jobs:
       - name: forge build
         run: forge build --sizes
 
+      # The Arc fork tests (test/fork) skip themselves when ARC_TESTNET_RPC_URL is unset, as it is here.
       - name: forge test (invariants at 1,000 runs)
         env:
           FOUNDRY_INVARIANT_RUNS: "1000"
@@ -99,6 +100,9 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: app
+
+      - name: Deploy-script helper tests
+        run: node --test scripts/arc-env.test.mjs
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

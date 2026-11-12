@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feeOn, formatUsdc, parseAddressList, parseUsdc, totalReservation } from './format'
+import { feeOn, formatNative, formatUsdc, parseAddressList, parseUsdc, totalReservation } from './format'
 
 describe('fee maths (must match ProjectVault.createTask)', () => {
   it('charges the fee on top of the reward', () => {
@@ -28,6 +28,22 @@ describe('parseUsdc / formatUsdc', () => {
     expect(formatUsdc(1_234_500_000n)).toBe('1,234.5')
     expect(formatUsdc(0n)).toBe('0')
     expect(formatUsdc(1n)).toBe('0.000001')
+  })
+})
+
+describe('formatNative (gas balance, 18 decimals, never mixed with 6-decimal USDC)', () => {
+  it('formats an 18-decimal amount', () => {
+    expect(formatNative(1_500_000_000_000_000_000n)).toBe('1.5')
+    expect(formatNative(0n)).toBe('0')
+  })
+  it('does not read a 6-decimal USDC amount as gas, or the reverse', () => {
+    // 1 USDC through the ERC-20 interface is 1_000_000; as native gas that is a dust amount
+    expect(formatUsdc(1_000_000n)).toBe('1')
+    expect(formatNative(1_000_000n)).toBe('0') // 1e-12, below the 6-place display
+    expect(formatNative(1_000_000n)).not.toBe(formatUsdc(1_000_000n))
+  })
+  it('trims long fractions to 6 places for display', () => {
+    expect(formatNative(1_234_567_890_123_456_789n)).toBe('1.234567')
   })
 })
 

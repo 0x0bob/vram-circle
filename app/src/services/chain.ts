@@ -2,6 +2,7 @@
 import { createPublicClient, erc20Abi, http, type Address, type Hex } from 'viem'
 import { appConfig, chain } from '../config'
 import { projectFactoryAbi, projectVaultAbi } from '../generated/abis'
+import { fetchPaged } from '../lib/paginate'
 
 export const publicClient = createPublicClient({ chain, transport: http(appConfig.rpcUrl) })
 
@@ -64,6 +65,18 @@ export async function readPaused(): Promise<boolean> {
   return publicClient.readContract({ address: factory(), abi: projectFactoryAbi, functionName: 'paused' })
 }
 
+/** Native (gas) balance: 18 decimals on Arc. A different unit from readUsdcBalance (ERC-20, 6 decimals). */
+export async function readGasBalance(owner: Address): Promise<bigint> {
+  return publicClient.getBalance({ address: owner })
+}
+
+/** Scans [deployBlock, latest] in bounded chunks so public RPCs do not reject or time out. */
+async function scan<T>(fetchRange: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>): Promise<T[]> {
+  // cacheTime 0: viem caches eth_blockNumber for ~4s, which would hide a block mined just after the last scan.
+  const latest = await publicClient.getBlockNumber({ cacheTime: 0 })
+  return fetchPaged(appConfig.deployBlock, latest, appConfig.logChunk, fetchRange)
+}
+
 export async function readUsdcDecimals(): Promise<number> {
   return publicClient.readContract({ address: usdc(), abi: erc20Abi, functionName: 'decimals' })
 }
@@ -83,14 +96,16 @@ export async function readAllowance(owner: Address, spender: Address): Promise<b
 
 /** Vaults created via the factory, optionally only those created by `creator`. (An indexer replaces this later.) */
 export async function findProjects(creator?: Address): Promise<Address[]> {
-  const logs = await publicClient.getContractEvents({
-    address: factory(),
-    abi: projectFactoryAbi,
-    eventName: 'ProjectCreated',
-    args: creator ? { creator } : undefined,
-    fromBlock: appConfig.deployBlock,
-    toBlock: 'latest',
-  })
+  const logs = await scan((fromBlock, toBlock) =>
+    publicClient.getContractEvents({
+      address: factory(),
+      abi: projectFactoryAbi,
+      eventName: 'ProjectCreated',
+      args: creator ? { creator } : undefined,
+      fromBlock,
+      toBlock,
+    }),
+  )
   return logs.map((l) => l.args.vault as Address)
 }
 
@@ -145,13 +160,9 @@ export async function readTasks(vault: Address, count: number): Promise<TaskView
 
 /** All submissions of a vault: ids and uris from Submitted events, live status from getSubmission. */
 export async function readSubmissions(vault: Address, reviewPeriod: number): Promise<SubmissionView[]> {
-  const logs = await publicClient.getContractEvents({
-    address: vault,
-    abi: projectVaultAbi,
-    eventName: 'Submitted',
-    fromBlock: appConfig.deployBlock,
-    toBlock: 'latest',
-  })
+  const logs = await scan((fromBlock, toBlock) =>
+    publicClient.getContractEvents({ address: vault, abi: projectVaultAbi, eventName: 'Submitted', fromBlock, toBlock }),
+  )
   return Promise.all(
     logs.map(async (l) => {
       const id = Number(l.args.submissionId)
@@ -177,13 +188,9 @@ export async function readSubmissions(vault: Address, reviewPeriod: number): Pro
 
 /** Current reviewer set, replayed from ReviewerSet events. */
 export async function readReviewers(vault: Address): Promise<Address[]> {
-  const logs = await publicClient.getContractEvents({
-    address: vault,
-    abi: projectVaultAbi,
-    eventName: 'ReviewerSet',
-    fromBlock: appConfig.deployBlock,
-    toBlock: 'latest',
-  })
+  const logs = await scan((fromBlock, toBlock) =>
+    publicClient.getContractEvents({ address: vault, abi: projectVaultAbi, eventName: 'ReviewerSet', fromBlock, toBlock }),
+  )
   const set = new Map<Address, boolean>()
   for (const l of logs) set.set(l.args.reviewer as Address, Boolean(l.args.allowed))
   return [...set].filter(([, on]) => on).map(([a]) => a)

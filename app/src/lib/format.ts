@@ -20,6 +20,17 @@ export function formatUsdc(amount: bigint, decimals = 6): string {
   return frac ? `${grouped}.${frac}` : grouped
 }
 
+/**
+ * Gas balance: the native currency, 18 decimals on Arc. Never feed an ERC-20 USDC amount (6 decimals)
+ * to this, or the reverse. Display is trimmed to 6 places.
+ */
+export function formatNative(amount: bigint, decimals = 18): string {
+  const s = formatUnits(amount, decimals)
+  const [int, frac = ''] = s.split('.')
+  const trimmed = frac.slice(0, 6).replace(/0+$/, '')
+  return trimmed ? `${int}.${trimmed}` : int
+}
+
 /** Parses a user-typed amount; returns null when empty, malformed, zero or negative. */
 export function parseUsdc(input: string, decimals = 6): bigint | null {
   const t = input.trim()
