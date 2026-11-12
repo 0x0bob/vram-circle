@@ -39,11 +39,7 @@ contract Deploy is Script {
         console.log("fee bps", FEE_BPS);
 
         vm.startBroadcast();
-        address[] memory ops = new address[](1);
-        ops[0] = treasury; // proposer and executor; no external admin (timelock administers itself)
-        timelock = new Timelock(TIMELOCK_DELAY, ops, ops);
-        router = new FeeRouter(usdc, address(timelock), treasury);
-        factory = new ProjectFactory(usdc, address(timelock), guardian, address(router), FEE_BPS, MIN_REVIEW_PERIOD);
+        (timelock, router, factory) = _deployProtocol(usdc, treasury, guardian);
         vm.stopBroadcast();
 
         console.log("1. Timelock       ", address(timelock));
@@ -51,6 +47,18 @@ contract Deploy is Script {
         console.log("3. ProjectFactory ", address(factory));
         console.log("   vault impl     ", factory.vaultImplementation());
         // TODO: write deployments/<network>.json and verify all contracts on the Arc explorer after a real broadcast.
+    }
+
+    /// @dev Deploys in dependency order. Callers wrap this in their own broadcast.
+    function _deployProtocol(address usdc, address treasury, address guardian)
+        internal
+        returns (Timelock timelock, FeeRouter router, ProjectFactory factory)
+    {
+        address[] memory ops = new address[](1);
+        ops[0] = treasury; // proposer and executor; no external admin (timelock administers itself)
+        timelock = new Timelock(TIMELOCK_DELAY, ops, ops);
+        router = new FeeRouter(usdc, address(timelock), treasury);
+        factory = new ProjectFactory(usdc, address(timelock), guardian, address(router), FEE_BPS, MIN_REVIEW_PERIOD);
     }
 
     function _multisig(string memory name, address placeholder) internal view returns (address a) {
