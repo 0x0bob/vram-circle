@@ -6,7 +6,7 @@ export const wagmiConfig = createConfig({
   chains: [chain],
   // Injected wallet first (MetaMask, Rabby, ...). Every write is signed by the user's wallet.
   connectors: [injected()],
-  transports: { [chain.id]: http(appConfig.rpcUrl) },
+  transports: { [chain.id]: http(appConfig.rpcUrl, { batch: true }) },
 })
 
 declare module '@wagmi/vue' {

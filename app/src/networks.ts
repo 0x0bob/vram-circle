@@ -68,3 +68,8 @@ export function notConfiguredMessage(n: NetworkInfo): string {
     ? 'Contracts not deployed on Arc testnet yet'
     : 'The app is not configured. Set VITE_FACTORY_ADDRESS and VITE_USDC_ADDRESS (local dev: run node scripts/dev.mjs).'
 }
+
+/** Polling cadence: the base rate on a local chain, 4x slower on a public RPC (Arc testnet rate-limits with HTTP 429). */
+export function pollInterval(n: NetworkInfo, baseMs: number): number {
+  return n.id === LOCAL.id ? baseMs : baseMs * 4
+}

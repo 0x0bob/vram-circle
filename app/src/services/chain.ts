@@ -4,7 +4,11 @@ import { appConfig, chain } from '../config'
 import { projectFactoryAbi, projectVaultAbi } from '../generated/abis'
 import { fetchPaged } from '../lib/paginate'
 
-export const publicClient = createPublicClient({ chain, transport: http(appConfig.rpcUrl) })
+export const publicClient = createPublicClient({
+  chain,
+  // batch: concurrent reads leave as one JSON-RPC request. Public RPCs (Arc testnet) answer HTTP 429 otherwise.
+  transport: http(appConfig.rpcUrl, { batch: true }),
+})
 
 export interface VaultInfo {
   address: Address

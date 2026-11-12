@@ -13,6 +13,12 @@
 - App: event scans are paginated in bounded block ranges from the deploy block (Arc's RPC rejects >= 10,000 blocks), with halving
   on RPC range errors. Regression: viem's 4s `eth_blockNumber` cache hid just-mined blocks from the scan (`cacheTime: 0`).
 - App: explorer links on transactions, static build for Arc testnet (`scripts/build-arc-testnet.mjs`, hash routing).
+- Arc testnet deployed and verified (Timelock, FeeRouter, ProjectFactory, vault implementation); `deployments/arc-testnet.json`;
+  core-flow smoke test on the real USDC recorded in `docs/testnet-smoke.md`.
+- App: JSON-RPC batching and slower polling on public RPCs. Regression: the project page sent ~12 separate `eth_call`s and the
+  public RPC answered HTTP 429 (`batching.test.ts`).
+- Static build for Vercel (`vercel.json`, path routing + SPA rewrite). The build succeeds without `deployments/arc-testnet.json`
+  and shows "Contracts not deployed on Arc testnet yet". Favicon added.
 - CLAUDE.md section 11: testnet roles are plain wallets, real multisigs required before mainnet; USDC native-backing note.
 
 ## Unreleased: Step 1 (ProjectFactory + ProjectVault)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ARC_MAINNET, ARC_TESTNET, LOCAL, MainnetDisabledError, resolveNetwork, txUrl } from './networks'
+import { ARC_MAINNET, ARC_TESTNET, LOCAL, MainnetDisabledError, pollInterval, resolveNetwork, txUrl } from './networks'
 
 describe('networks', () => {
   it('Arc testnet values match the verified docs', () => {
@@ -30,5 +30,12 @@ describe('networks', () => {
   it('links transactions to the explorer on Arc testnet and nowhere on the local chain', () => {
     expect(txUrl(ARC_TESTNET, '0xabc')).toBe('https://explorer.testnet.arc.io/tx/0xabc')
     expect(txUrl(LOCAL, '0xabc')).toBeNull()
+  })
+})
+
+describe('pollInterval', () => {
+  it('polls at the base rate locally and slower on a public RPC, to stay under its rate limit', () => {
+    expect(pollInterval(LOCAL, 4000)).toBe(4000)
+    expect(pollInterval(ARC_TESTNET, 4000)).toBe(16000)
   })
 })
