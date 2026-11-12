@@ -3,7 +3,8 @@ import { onMounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import TxToasts from './components/TxToasts.vue'
 import { useProtocolStore } from './stores/protocol'
-import { isConfigured } from './config'
+import { isConfigured, network } from './config'
+import { notConfiguredMessage } from './networks'
 
 const protocol = useProtocolStore()
 onMounted(() => {
@@ -15,8 +16,7 @@ onMounted(() => {
   <AppHeader />
   <main class="page">
     <p v-if="!isConfigured" class="banner error" data-testid="not-configured">
-      The app is not configured. Set VITE_FACTORY_ADDRESS and VITE_USDC_ADDRESS (local dev: run
-      <code>node scripts/dev.mjs</code>).
+      {{ notConfiguredMessage(network) }}
     </p>
     <p v-else-if="protocol.error" class="banner error">Cannot read the chain: {{ protocol.error }}</p>
     <p v-if="protocol.paused" class="banner warn" data-testid="paused-banner">

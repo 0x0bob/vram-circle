@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased: Step 3b (Arc testnet)
+
+- Arc testnet values (chain 5042002, RPC, explorer, USDC `0x3600...0000`) replace the `TODO(verify)` markers, cited
+  to docs.arc.io as verified by the project owner. Mainnet (5042) is defined but refused by the app and by the deploy script.
+- `script/Deploy.s.sol`: pins the verified USDC on testnet, blocks mainnet, requires distinct non-zero treasury and
+  guardian, and writes `deployments/arc-testnet.json` only on a real broadcast (never on a dry run). Keys come only from a
+  Foundry encrypted keystore (`--account vram-deployer`), never a file or env var.
+- Fork tests (`test/fork`, skipped without `ARC_TESTNET_RPC_URL`): the core flow against the real Arc USDC. Foundry cannot run Arc's
+  system precompiles, so `ArcPrecompileEmu` stands in for the two the token calls (inferred from traces).
+- Finding: Arc's ERC-20 USDC balance is the native balance / 1e12. The UI now shows the gas balance separately (18 decimals).
+- App: event scans are paginated in bounded block ranges from the deploy block (Arc's RPC rejects >= 10,000 blocks), with halving
+  on RPC range errors. Regression: viem's 4s `eth_blockNumber` cache hid just-mined blocks from the scan (`cacheTime: 0`).
+- App: explorer links on transactions, static build for Arc testnet (`scripts/build-arc-testnet.mjs`, hash routing).
+- Arc testnet deployed and verified (Timelock, FeeRouter, ProjectFactory, vault implementation); `deployments/arc-testnet.json`;
+  core-flow smoke test on the real USDC recorded in `docs/testnet-smoke.md`.
+- App: JSON-RPC batching and slower polling on public RPCs. Regression: the project page sent ~12 separate `eth_call`s and the
+  public RPC answered HTTP 429 (`batching.test.ts`).
+- Static build for Vercel (`vercel.json`, path routing + SPA rewrite). The build succeeds without `deployments/arc-testnet.json`
+  and shows "Contracts not deployed on Arc testnet yet". Favicon added.
+- CLAUDE.md section 11: testnet roles are plain wallets, real multisigs required before mainnet; USDC native-backing note.
+
 ## Unreleased: Step 1 (ProjectFactory + ProjectVault)
 
 - `ProjectFactory`: EIP-1167 vault clones, guardian pause (new projects/tasks/submissions only),

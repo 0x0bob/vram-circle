@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter } from 'vue-router'
+import { makeHistory } from './history'
 import HomeView from '../views/HomeView.vue'
 import CreatorView from '../views/CreatorView.vue'
 import ProjectView from '../views/ProjectView.vue'
@@ -7,7 +8,7 @@ import ReviewView from '../views/ReviewView.vue'
 import MeView from '../views/MeView.vue'
 
 export const router = createRouter({
-  history: createWebHistory(),
+  history: makeHistory(import.meta.env.VITE_ROUTER_MODE as string | undefined),
   routes: [
     { path: '/', name: 'home', component: HomeView },
     { path: '/creator', name: 'creator', component: CreatorView },

@@ -2,11 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from '@wagmi/vue'
-import { chain } from '../config'
-import { readUsdcBalance } from '../services/chain'
+import { chain, network } from '../config'
+import { readGasBalance, readUsdcBalance } from '../services/chain'
 import { useProtocolStore } from '../stores/protocol'
 import { usePolling } from '../composables/usePolling'
-import { formatUsdc, shortAddr } from '../lib/format'
+import { formatNative, formatUsdc, shortAddr } from '../lib/format'
 
 const route = useRoute()
 const protocol = useProtocolStore()
@@ -18,16 +18,24 @@ const { address, isConnected, chainId } = useConnection()
 
 const wrongNetwork = computed(() => isConnected.value && chainId.value !== chain.id)
 const balance = ref<bigint | null>(null)
+/** Native gas balance (18 decimals on Arc), shown separately from the 6-decimal ERC-20 USDC balance. */
+const gas = ref<bigint | null>(null)
 
 async function loadBalance() {
   if (!address.value) {
     balance.value = null
+    gas.value = null
     return
   }
   try {
     balance.value = await readUsdcBalance(address.value)
   } catch {
     balance.value = null
+  }
+  try {
+    gas.value = await readGasBalance(address.value)
+  } catch {
+    gas.value = null
   }
 }
 usePolling(loadBalance, 5000)
@@ -53,6 +61,9 @@ const vault = computed(() => (typeof route.params.vault === 'string' ? route.par
         <span data-testid="account" :title="address">{{ shortAddr(address) }}</span>
         <span v-if="balance !== null" data-testid="usdc-balance" class="muted">
           {{ formatUsdc(balance, protocol.decimals) }} USDC
+        </span>
+        <span v-if="gas !== null" data-testid="gas-balance" class="muted" title="Native gas balance (18 decimals), separate from the USDC above">
+          gas {{ formatNative(gas, network.nativeDecimals) }} {{ network.nativeSymbol }}
         </span>
         <button class="secondary" @click="disconnect()">Disconnect</button>
       </template>
