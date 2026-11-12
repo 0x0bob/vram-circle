@@ -6,3 +6,6 @@ broadcast/
 node_modules/
 .venv/
 deployments/local.json
+
+# throwaway TESTNET mnemonic, never commit
+.seed

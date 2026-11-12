@@ -9,14 +9,14 @@ const good = {
   factory: '0x1111111111111111111111111111111111111111',
 }
 
+// Vercel serves the site from the domain root and rewrites every path to index.html (vercel.json), so the build
+// uses normal path routing and an absolute base: no hash routing and no relative base.
 test('maps a testnet deployment record to the static build environment', () => {
   assert.deepEqual(envFromDeployment(good), {
     VITE_CHAIN_ID: '5042002',
     VITE_FACTORY_ADDRESS: good.factory,
     VITE_USDC_ADDRESS: good.usdc,
     VITE_DEPLOY_BLOCK: '71995003',
-    VITE_ROUTER_MODE: 'hash',
-    VITE_BASE: './',
   })
 })
 

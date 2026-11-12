@@ -18,8 +18,5 @@ export function envFromDeployment(d) {
     VITE_FACTORY_ADDRESS: d.factory,
     VITE_USDC_ADDRESS: d.usdc,
     VITE_DEPLOY_BLOCK: String(d.deployBlock),
-    // A static host has no SPA fallback and may serve from a sub-path (GitHub Pages).
-    VITE_ROUTER_MODE: 'hash',
-    VITE_BASE: './',
   }
 }
