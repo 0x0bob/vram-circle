@@ -61,3 +61,10 @@ export function resolveNetwork(chainId: number): NetworkInfo {
 export function txUrl(n: NetworkInfo, hash: string): string | null {
   return n.explorerUrl ? `${n.explorerUrl}/tx/${hash}` : null
 }
+
+/** Banner text when VITE_FACTORY_ADDRESS / VITE_USDC_ADDRESS are missing. */
+export function notConfiguredMessage(n: NetworkInfo): string {
+  return n.id === ARC_TESTNET.id
+    ? 'Contracts not deployed on Arc testnet yet'
+    : 'The app is not configured. Set VITE_FACTORY_ADDRESS and VITE_USDC_ADDRESS (local dev: run node scripts/dev.mjs).'
+}
