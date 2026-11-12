@@ -1,13 +1,14 @@
 // Read-only chain access with viem. No signing here; every write goes through the wallet (see useTx).
-import { createPublicClient, erc20Abi, http, type Address, type Hex } from 'viem'
-import { appConfig, chain } from '../config'
+import { createPublicClient, erc20Abi, getAbiItem, http, type Address, type Hex } from 'viem'
+import { appConfig, chain, network } from '../config'
 import { projectFactoryAbi, projectVaultAbi } from '../generated/abis'
 import { fetchPaged } from '../lib/paginate'
+import { createPacer } from '../lib/pacer'
 
 export const publicClient = createPublicClient({
   chain,
   // batch: concurrent reads leave as one JSON-RPC request. Public RPCs (Arc testnet) answer HTTP 429 otherwise.
-  transport: http(appConfig.rpcUrl, { batch: true }),
+  transport: http(appConfig.rpcUrl, { batch: true, retryCount: 6 }),
 })
 
 export interface VaultInfo {
@@ -74,11 +75,43 @@ export async function readGasBalance(owner: Address): Promise<bigint> {
   return publicClient.getBalance({ address: owner })
 }
 
-/** Scans [deployBlock, latest] in bounded chunks so public RPCs do not reject or time out. */
-async function scan<T>(fetchRange: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>): Promise<T[]> {
-  // cacheTime 0: viem caches eth_blockNumber for ~4s, which would hide a block mined just after the last scan.
-  const latest = await publicClient.getBlockNumber({ cacheTime: 0 })
-  return fetchPaged(appConfig.deployBlock, latest, appConfig.logChunk, fetchRange)
+/** All eth_getLogs and block-number requests of the scans go through one queue with spacing (see NetworkInfo.logGapMs). */
+const pace = createPacer(network.logGapMs)
+
+interface ScanCache {
+  /** Next block that has not been scanned yet. */
+  next: bigint
+  logs: unknown[]
+  inflight?: Promise<unknown[]>
+}
+const scanCache = new Map<string, ScanCache>()
+
+/**
+ * Scans [deployBlock, latest] in bounded chunks so public RPCs do not reject or time out. Incremental: after the first
+ * scan of a `key` only blocks after the last scanned one are requested, and concurrent callers share one scan.
+ * (Arc produces ~2 blocks per second, so a full re-scan on every poll hits the public RPC's rate limit within hours.)
+ */
+async function scan<T>(key: string, fetchRange: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>): Promise<T[]> {
+  let entry = scanCache.get(key)
+  if (!entry) {
+    entry = { next: appConfig.deployBlock, logs: [] }
+    scanCache.set(key, entry)
+  }
+  const e = entry
+  if (e.inflight) return e.inflight as Promise<T[]>
+  e.inflight = (async () => {
+    // cacheTime 0: viem caches eth_blockNumber for ~4s, which would hide a block mined just after the last scan.
+    const latest = await pace(() => publicClient.getBlockNumber({ cacheTime: 0 }))
+    if (latest >= e.next) {
+      const fresh = await fetchPaged(e.next, latest, appConfig.logChunk, (a, b) => pace(() => fetchRange(a, b)))
+      e.logs = e.logs.concat(fresh)
+      e.next = latest + 1n
+    }
+    return e.logs
+  })().finally(() => {
+    e.inflight = undefined
+  })
+  return e.inflight as Promise<T[]>
 }
 
 export async function readUsdcDecimals(): Promise<number> {
@@ -100,7 +133,7 @@ export async function readAllowance(owner: Address, spender: Address): Promise<b
 
 /** Vaults created via the factory, optionally only those created by `creator`. (An indexer replaces this later.) */
 export async function findProjects(creator?: Address): Promise<Address[]> {
-  const logs = await scan((fromBlock, toBlock) =>
+  const logs = await scan(`projects:${creator ?? 'all'}`, (fromBlock, toBlock) =>
     publicClient.getContractEvents({
       address: factory(),
       abi: projectFactoryAbi,
@@ -162,14 +195,25 @@ export async function readTasks(vault: Address, count: number): Promise<TaskView
   return Promise.all(Array.from({ length: count }, (_, i) => readTask(vault, i + 1)))
 }
 
+/** Submitted and ReviewerSet events of a vault in ONE scan (one eth_getLogs per range, not two). */
+async function vaultEvents(vault: Address) {
+  const events = [
+    getAbiItem({ abi: projectVaultAbi, name: 'Submitted' }),
+    getAbiItem({ abi: projectVaultAbi, name: 'ReviewerSet' }),
+  ] as const
+  const logs = await scan(`vault:${vault}`, (fromBlock, toBlock) =>
+    publicClient.getLogs({ address: vault, events, fromBlock, toBlock }),
+  )
+  return logs as Array<(typeof logs)[number]>
+}
+
 /** All submissions of a vault: ids and uris from Submitted events, live status from getSubmission. */
 export async function readSubmissions(vault: Address, reviewPeriod: number): Promise<SubmissionView[]> {
-  const logs = await scan((fromBlock, toBlock) =>
-    publicClient.getContractEvents({ address: vault, abi: projectVaultAbi, eventName: 'Submitted', fromBlock, toBlock }),
-  )
+  const logs = (await vaultEvents(vault)).filter((l) => l.eventName === 'Submitted')
   return Promise.all(
     logs.map(async (l) => {
-      const id = Number(l.args.submissionId)
+      const args = l.args as { submissionId: bigint; uri: string }
+      const id = Number(args.submissionId)
       const s = await publicClient.readContract({
         address: vault,
         abi: projectVaultAbi,
@@ -181,7 +225,7 @@ export async function readSubmissions(vault: Address, reviewPeriod: number): Pro
         taskId: s.taskId,
         contributor: s.contributor,
         contentHash: s.contentHash,
-        uri: l.args.uri as string,
+        uri: args.uri,
         status: s.status,
         submittedAt: s.submittedAt,
         reviewDeadline: s.submittedAt + BigInt(reviewPeriod),
@@ -192,11 +236,12 @@ export async function readSubmissions(vault: Address, reviewPeriod: number): Pro
 
 /** Current reviewer set, replayed from ReviewerSet events. */
 export async function readReviewers(vault: Address): Promise<Address[]> {
-  const logs = await scan((fromBlock, toBlock) =>
-    publicClient.getContractEvents({ address: vault, abi: projectVaultAbi, eventName: 'ReviewerSet', fromBlock, toBlock }),
-  )
+  const logs = (await vaultEvents(vault)).filter((l) => l.eventName === 'ReviewerSet')
   const set = new Map<Address, boolean>()
-  for (const l of logs) set.set(l.args.reviewer as Address, Boolean(l.args.allowed))
+  for (const l of logs) {
+    const args = l.args as { reviewer: Address; allowed: boolean }
+    set.set(args.reviewer, Boolean(args.allowed))
+  }
   return [...set].filter(([, on]) => on).map(([a]) => a)
 }
 

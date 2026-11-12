@@ -31,13 +31,26 @@ function open() {
 </script>
 
 <template>
-  <h1>Training data marketplace</h1>
-  <p class="muted">
-    Creators fund projects with USDC. Contributors complete tasks. Reviewers accept or reject work, and accepted
-    work is paid from the project vault. Every action is a transaction signed in your own wallet.
-  </p>
+  <section class="hero">
+    <span class="eyebrow">Training data marketplace · on Arc</span>
+    <h1>Expert data.<br /><mark>Paid</mark> in USDC.</h1>
+    <p class="lead">
+      Creators lock USDC in a project vault before any work starts. Contributors complete tasks. Reviewers accept or
+      reject, and accepted work is paid straight from the vault. Every action is a transaction signed in your own wallet.
+    </p>
+    <div class="cta">
+      <router-link class="primary" to="/creator">Start a project →</router-link>
+      <a href="#open">Open a project</a>
+    </div>
+    <div class="facts" data-testid="facts">
+      <div class="fact"><div class="n">10%</div><div class="c">Protocol fee, on top of the reward</div></div>
+      <div class="fact"><div class="n">48h</div><div class="c">Timelock on every parameter change</div></div>
+      <div class="fact"><div class="n">7d</div><div class="c">Review window, then contributors can claim</div></div>
+      <div class="fact"><div class="n">0</div><div class="c">Backend keys that can move funds</div></div>
+    </div>
+  </section>
 
-  <section class="card">
+  <section id="open" class="card">
     <h2>Open a project</h2>
     <div class="row">
       <div>

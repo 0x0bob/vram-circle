@@ -12,6 +12,10 @@ export interface NetworkInfo {
   /** Native currency (gas). On Arc this is USDC with 18 decimals: a different unit from the ERC-20 interface. */
   nativeSymbol: string
   nativeDecimals: number
+  /** Max blocks per eth_getLogs request. Arc's public RPC rejects ranges of 10,000 blocks or more. */
+  logChunk: bigint
+  /** Minimum spacing between log requests. Arc's public RPC answers a burst of about 4 requests with HTTP 429 / -32005. */
+  logGapMs: number
 }
 
 // Source: docs.arc.io (Arc network details), as verified by the project owner in Nov 2026.
@@ -24,6 +28,8 @@ export const ARC_TESTNET: NetworkInfo = {
   usdcDecimals: 6,
   nativeSymbol: 'USDC',
   nativeDecimals: 18,
+  logChunk: 9_000n,
+  logGapMs: 300,
 }
 
 /** Known for reference only. MUST NOT be used: resolveNetwork refuses it. Mainnet needs an explicit instruction. */
@@ -34,6 +40,8 @@ export const ARC_MAINNET: NetworkInfo = {
   usdcDecimals: 6,
   nativeSymbol: 'USDC',
   nativeDecimals: 18,
+  logChunk: 9_000n,
+  logGapMs: 300,
 }
 
 export const LOCAL: NetworkInfo = {
@@ -43,6 +51,8 @@ export const LOCAL: NetworkInfo = {
   usdcDecimals: 6,
   nativeSymbol: 'ETH',
   nativeDecimals: 18,
+  logChunk: 10_000n,
+  logGapMs: 0,
 }
 
 export class MainnetDisabledError extends Error {

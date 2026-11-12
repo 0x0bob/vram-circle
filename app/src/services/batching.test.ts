@@ -31,4 +31,26 @@ describe('rpc batching', () => {
     expect(requests[0].batch).toBe(true)
     expect(requests[0].size).toBe(8)
   })
+
+  // Reads that land right behind a burst get -32005 from the public RPC. They must be retried, not shown as errors.
+  it('retries a read through four consecutive rate-limit responses', async () => {
+    let failures = 4
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const body = JSON.parse(init.body)
+        const list = Array.isArray(body) ? body : [body]
+        const reply = list.map((r: { id: number }) =>
+          failures-- > 0
+            ? { jsonrpc: '2.0', id: r.id, error: { code: -32005, message: 'rate limit exceeded' } }
+            : { jsonrpc: '2.0', id: r.id, result: `0x${'6'.padStart(64, '0')}` },
+        )
+        return new Response(JSON.stringify(Array.isArray(body) ? reply : reply[0]), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }),
+    )
+    const { readUsdcDecimals } = await import('./chain')
+    await expect(readUsdcDecimals()).resolves.toBe(6)
+  }, 20_000)
 })

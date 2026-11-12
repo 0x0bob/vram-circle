@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { blockRanges, fetchPaged } from './paginate'
+import { blockRanges, fetchPaged, isRateLimit } from './paginate'
 
 describe('blockRanges', () => {
   it('splits an inclusive range into bounded chunks', () => {
@@ -69,5 +69,48 @@ describe('fetchPaged', () => {
     const fn = vi.fn(async () => ['x'])
     expect(await fetchPaged(10n, 5n, 100n, fn)).toEqual([])
     expect(fn).not.toHaveBeenCalled()
+  })
+})
+
+// Regression (step 3b, 2026-11-13): production hit "rate limit exceeded" (-32005) on a ~60-chunk scan.
+// A rate limit means "wait", not "ask for fewer blocks": halving would only make MORE requests.
+describe('rate limits', () => {
+  it('recognises rate-limit errors from viem and from raw RPC responses', () => {
+    expect(isRateLimit(Object.assign(new Error('Request exceeds defined limit'), { code: -32005 }))).toBe(true)
+    expect(isRateLimit(Object.assign(new Error('HTTP request failed'), { status: 429 }))).toBe(true)
+    expect(isRateLimit(new Error('rate limit exceeded'))).toBe(true)
+    expect(isRateLimit(new Error('Too many requests'))).toBe(true)
+    expect(isRateLimit(Object.assign(new Error('wrapper'), { cause: { code: -32005 } }))).toBe(true)
+    expect(isRateLimit(new Error('requested range too large'))).toBe(false)
+    expect(isRateLimit(new Error('boom'))).toBe(false)
+  })
+
+  it('retries the SAME chunk after a backoff instead of halving it', async () => {
+    const calls: Array<[bigint, bigint]> = []
+    const sleeps: number[] = []
+    let failures = 2
+    const out = await fetchPaged(
+      0n,
+      9n,
+      10n,
+      async (a, b) => {
+        calls.push([a, b])
+        if (failures-- > 0) throw new Error('rate limit exceeded')
+        return ['ok']
+      },
+      { sleep: async (ms) => void sleeps.push(ms) },
+    )
+    expect(out).toEqual(['ok'])
+    expect(calls).toEqual([[0n, 9n], [0n, 9n], [0n, 9n]]) // never narrowed
+    expect(sleeps).toHaveLength(2)
+    expect(sleeps[1]).toBeGreaterThan(sleeps[0]) // exponential backoff
+  })
+
+  it('gives up after the retry budget and rethrows', async () => {
+    const fn = vi.fn(async () => {
+      throw new Error('rate limit exceeded')
+    })
+    await expect(fetchPaged(0n, 9n, 10n, fn, { sleep: async () => undefined, maxRetries: 3 })).rejects.toThrow('rate limit')
+    expect(fn).toHaveBeenCalledTimes(4) // first try + 3 retries
   })
 })

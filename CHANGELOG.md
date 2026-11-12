@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased: Step 3c (design, RPC scan hardening)
+
+- New look: white canvas, black ink, neon-green accent as fills and highlights, Space Grotesk / Inter / JetBrains Mono,
+  hero with facts the contracts enforce, network pill in the header, new favicon. No behaviour change.
+- Fix: production showed "Request exceeds defined limit". Event scans are now incremental and shared, merged per vault, paced
+  (300ms between log requests on Arc testnet), back off on rate limits without halving the chunk, and use 9,000-block chunks.
+  Regression tests: `chain.test.ts`, `paginate.test.ts`, `pacer.test.ts`, `pacing.test.ts`, `batching.test.ts`.
+- `docs/testnet-smoke.md`: live URL check and measured RPC limits.
+
 ## Unreleased: Step 3b (Arc testnet)
 
 - Arc testnet values (chain 5042002, RPC, explorer, USDC `0x3600...0000`) replace the `TODO(verify)` markers, cited

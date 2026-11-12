@@ -6,6 +6,7 @@ import { chain, network } from '../config'
 import { readGasBalance, readUsdcBalance } from '../services/chain'
 import { useProtocolStore } from '../stores/protocol'
 import { usePolling } from '../composables/usePolling'
+import NetworkPill from './NetworkPill.vue'
 import { formatNative, formatUsdc, shortAddr } from '../lib/format'
 
 const route = useRoute()
@@ -57,6 +58,7 @@ const vault = computed(() => (typeof route.params.vault === 'string' ? route.par
       </template>
     </nav>
     <div class="wallet">
+      <NetworkPill :network="network" />
       <template v-if="isConnected && address">
         <span data-testid="account" :title="address">{{ shortAddr(address) }}</span>
         <span v-if="balance !== null" data-testid="usdc-balance" class="muted">

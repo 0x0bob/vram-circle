@@ -19,8 +19,8 @@ export const appConfig = {
   usdc: ((env.VITE_USDC_ADDRESS as string | undefined) ?? network.usdc) as Address | undefined,
   /** First block to scan for events (the factory deploy block from deployments/<network>.json). */
   deployBlock: BigInt((env.VITE_DEPLOY_BLOCK as string | undefined) ?? '0'),
-  /** Max blocks per eth_getLogs request. Public RPCs reject wide ranges (Arc testnet rejects >= 10,000). */
-  logChunk: BigInt((env.VITE_LOG_CHUNK as string | undefined) ?? '1000'),
+  /** Max blocks per eth_getLogs request. Public RPCs reject wide ranges (Arc testnet rejects >= 10,000; default per network in networks.ts). */
+  logChunk: BigInt((env.VITE_LOG_CHUNK as string | undefined) ?? network.logChunk),
 }
 
 export const chain =
