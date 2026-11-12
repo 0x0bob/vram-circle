@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.9.0
+
+      - name: forge fmt --check
+        run: forge fmt --check
+
+      - name: forge build
+        run: forge build --sizes
+
+      - name: forge test (invariants at 1,000 runs)
+        env:
+          FOUNDRY_INVARIANT_RUNS: "1000"
+        run: forge test -vvv
+
+      - name: forge snapshot --check
+        run: forge snapshot --check
+
+  slither:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.9.0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Slither
+        run: pip install slither-analyzer
+
+      # Fails on high and medium findings. The one approved suppression
+      # (incident: FeeRouter incorrect-equality) is an inline slither-disable comment.
+      - name: Slither
+        run: slither . --exclude-dependencies --fail-medium

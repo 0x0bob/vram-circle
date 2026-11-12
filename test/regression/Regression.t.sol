@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Base} from "../Base.t.sol";
 import {ProjectVault} from "../../src/core/ProjectVault.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 /// @dev Regression tests: never delete. Each documents what broke and when.
 contract RegressionTest is Base {
@@ -55,5 +56,20 @@ contract RegressionTest is Base {
         vault.claim(s1);
         assertEq(vault.reserved(), 110e6); // bob's unit still held
         assertEq(usdc.balanceOf(address(vault)), vault.reserved() + vault.unreserved());
+    }
+
+    /// @notice 2026-11-06 (Slither missing-zero-check): `initialize` accepted a zero creator, which would
+    ///         brick a vault (nobody could create tasks or withdraw). Zero creator/factory/usdc must revert.
+    function test_regression_initializeRejectsZeroAddresses() public {
+        address impl = factory.vaultImplementation();
+        ProjectVault v = ProjectVault(Clones.clone(impl));
+        vm.expectRevert(ProjectVault.ZeroAddress.selector);
+        v.initialize(address(0), address(factory), address(usdc), 5000, REVIEW, "x");
+        v = ProjectVault(Clones.clone(impl));
+        vm.expectRevert(ProjectVault.ZeroAddress.selector);
+        v.initialize(alice, address(0), address(usdc), 5000, REVIEW, "x");
+        v = ProjectVault(Clones.clone(impl));
+        vm.expectRevert(ProjectVault.ZeroAddress.selector);
+        v.initialize(alice, address(factory), address(0), 5000, REVIEW, "x");
     }
 }

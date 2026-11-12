@@ -35,6 +35,8 @@ contract FeeRouter is ReentrancyGuard {
     /// @return amount Amount forwarded (zero when the router is empty).
     function distribute() external nonReentrant returns (uint256 amount) {
         amount = usdc.balanceOf(address(this));
+        // Safe: a zero balance only skips a no-op transfer; a 1-wei donation is simply forwarded.
+        // slither-disable-next-line incorrect-equality
         if (amount == 0) return 0;
         address to = treasury;
         usdc.safeTransfer(to, amount);
