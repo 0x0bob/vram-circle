@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { accessMessage as serverAccessMessage } from '../../../agent/auth'
 import { hashText } from '../lib/hash'
 import { accessMessage, createAccess, fetchAdvice, fetchSpec, fetchSubmission, runScreen, uploadText } from './agentApi'
 
@@ -20,10 +19,20 @@ beforeEach(() => {
   vi.unstubAllGlobals()
 })
 
+// The SAME literal is pinned in agent/auth.test.ts. If either side changes this text, its own test fails, so the browser and
+// the server cannot drift apart (the packages stay independent, and a drift would break every sign-in).
+const GOLDEN_MESSAGE = [
+  'VRAM access',
+  'vault: 0x269fcaf4d50cfd5346d275a7546ce78fec29b111',
+  'chain: 5042002',
+  'expires: 1800000000',
+  'This signature only lets this site show you submissions and agent advice for this project until it expires.',
+  'It does not authorize any transaction.',
+].join('\n')
+
 describe('access message', () => {
-  it('is byte-identical to what the server verifies (a drift would break every sign-in)', () => {
-    const o = { vault: vault as `0x${string}`, chainId: 5042002, expires: 1_800_000_000 }
-    expect(accessMessage(o)).toBe(serverAccessMessage(o))
+  it('is exactly the pinned text the server verifies', () => {
+    expect(accessMessage({ vault: vault as `0x${string}`, chainId: 5042002, expires: 1_800_000_000 })).toBe(GOLDEN_MESSAGE)
   })
 })
 
@@ -92,7 +101,7 @@ describe('createAccess (one wallet signature per project per hour, not per click
     const expires = Number(h['x-vram-expires'])
     expect(expires).toBeGreaterThan(now / 1000)
     expect(expires).toBeLessThanOrEqual(now / 1000 + 3600)
-    expect(sign).toHaveBeenCalledWith(serverAccessMessage({ vault: vault as `0x${string}`, chainId: 5042002, expires }))
+    expect(sign).toHaveBeenCalledWith(accessMessage({ vault: vault as `0x${string}`, chainId: 5042002, expires }))
     expect(h['x-vram-signature']).toMatch(/^0xsig/)
   })
 

@@ -13,6 +13,27 @@ async function sign(vault = VAULT, expires = NOW + 600) {
   return { vault, expires, signature: await account.signMessage({ message }) }
 }
 
+
+// The exact text a wallet signs to sign in. The SAME literal is pinned in app/src/services/agentApi.test.ts: if either side
+// changes this text, its own test fails, so browser and server cannot drift apart (the packages stay independent).
+const GOLDEN_MESSAGE = [
+  'VRAM access',
+  'vault: 0x269fcaf4d50cfd5346d275a7546ce78fec29b111',
+  'chain: 5042002',
+  'expires: 1800000000',
+  'This signature only lets this site show you submissions and agent advice for this project until it expires.',
+  'It does not authorize any transaction.',
+].join('\n')
+
+describe('access message', () => {
+  it('is exactly the pinned text (shared with the browser test)', () => {
+    expect(accessMessage({ vault: VAULT, chainId: 5042002, expires: 1_800_000_000 })).toBe(GOLDEN_MESSAGE)
+  })
+  it('lowercases the vault so the signed text does not depend on address casing', () => {
+    expect(accessMessage({ vault: VAULT.toUpperCase().replace('0X', '0x') as typeof VAULT, chainId: 5042002, expires: 1_800_000_000 })).toBe(GOLDEN_MESSAGE)
+  })
+})
+
 describe('authenticate (wallet signature, no session, no server secret)', () => {
   it('recovers the signer of a fresh, correctly scoped message', async () => {
     const s = await sign()
