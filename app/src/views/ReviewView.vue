@@ -9,6 +9,11 @@ import { projectVaultAbi } from '../generated/abis'
 import ReviewQueue from '../components/ReviewQueue.vue'
 import { displayStatus, formatDuration, secondsLeft, statusLabel } from '../lib/status'
 import { shortAddr } from '../lib/format'
+import { signMessage } from '@wagmi/core'
+import { wagmiConfig } from '../wagmi'
+import { chain } from '../config'
+import { apiEnabled, createAccess } from '../services/agentApi'
+import { useReviewDetails } from '../composables/useReviewDetails'
 
 const props = defineProps<{ vault: string }>()
 const { vault, valid, project } = useProjectRoute(() => props.vault)
@@ -33,6 +38,10 @@ const decided = computed(() =>
   project.submissions.filter((s) => displayStatus(s, protocol.now) !== 'pending'),
 )
 const busy = ref(false)
+
+// Content and agent advice. Reading needs a wallet signature (a login, not a transaction), asked once per project.
+const access = createAccess({ chainId: chain.id, sign: (message) => signMessage(wagmiConfig, { message }) })
+const { details, open, screen } = useReviewDetails({ vault, submissions: () => project.submissions, access })
 
 async function approve(id: number) {
   if (!vault.value) return
@@ -69,7 +78,17 @@ async function reject(id: number, reasonHash: `0x${string}`) {
         A rejection needs a reason. The reason is hashed in your browser and only the hash is stored on-chain.
         Work not reviewed before the timer runs out becomes claimable by the contributor as approved.
       </p>
-      <ReviewQueue :submissions="pending" :now="protocol.now" :busy="busy || !canReview" @approve="approve" @reject="reject" />
+      <ReviewQueue
+        :submissions="pending"
+        :now="protocol.now"
+        :busy="busy || !canReview"
+        :agent-enabled="apiEnabled && canReview"
+        :details="details"
+        @approve="approve"
+        @reject="reject"
+        @open="open"
+        @screen="screen"
+      />
     </section>
 
     <section class="card">

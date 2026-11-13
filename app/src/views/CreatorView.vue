@@ -6,6 +6,8 @@ import { appConfig } from '../config'
 import { useProtocolStore } from '../stores/protocol'
 import { useProjectStore } from '../stores/project'
 import { useTx } from '../composables/useTx'
+import { useTxStore } from '../stores/tx'
+import { apiEnabled, uploadText } from '../services/agentApi'
 import { usePolling } from '../composables/usePolling'
 import { findProjects, readAllowance, readUsdcBalance } from '../services/chain'
 import { projectFactoryAbi, projectVaultAbi } from '../generated/abis'
@@ -17,6 +19,7 @@ import { formatDate } from '../lib/status'
 const protocol = useProtocolStore()
 const project = useProjectStore()
 const { send } = useTx()
+const txStore = useTxStore()
 const { address, isConnected } = useConnection()
 
 const fmt = (v: bigint) => `${formatUsdc(v, protocol.decimals)} USDC`
@@ -147,6 +150,14 @@ const taskFormOk = computed(
 async function createTask() {
   if (!selected.value || !taskFormOk.value) return
   const specHash = hashText(specText.value)
+  if (apiEnabled) {
+    // The storage service keeps the instructions available to contributors and the agent. The chain stores only the hash,
+    // and uploadText throws if the service hashed different bytes than this browser did.
+    const stored = await txStore.track('Upload task instructions', async () => {
+      await uploadText('spec', specText.value)
+    })
+    if (!stored) return
+  }
   const deadline = protocol.now + BigInt(Math.round(daysParsed.value! * 86400))
   const ok = await send('Create task', {
     address: selected.value,
@@ -313,7 +324,7 @@ async function withdraw() {
 
       <section class="card">
         <h2>Create a task</h2>
-        <label for="spec">Task spec (hashed in your browser; publish the text where contributors can read it)</label>
+        <label for="spec">Task instructions ({{ apiEnabled ? "hashed in your browser, stored for contributors and the agent" : "hashed in your browser; publish the text where contributors can read it" }})</label>
         <textarea id="spec" v-model="specText" rows="3" data-testid="spec-input" />
         <div class="row">
           <div>

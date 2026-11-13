@@ -24,5 +24,6 @@ export function envFromDeployment(d) {
     VITE_FACTORY_ADDRESS: d.factory,
     VITE_USDC_ADDRESS: d.usdc,
     VITE_DEPLOY_BLOCK: String(d.deployBlock),
+    VITE_API_ENABLED: '1',
   }
 }
