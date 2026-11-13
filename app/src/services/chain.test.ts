@@ -57,4 +57,39 @@ describe('event scans', () => {
     await findProjects()
     expect(state.logRanges.at(-1)![1]).toBe(101n)
   })
+
+  // Regression (step 3b, 2026-11-13): every poll re-scanned from the deploy block (~60 requests on Arc testnet after nine
+  // hours) and hit the RPC rate limit. After the first scan, only blocks after the last scanned one may be requested.
+  it('test_regression_laterScansOnlyRequestNewBlocks', async () => {
+    state.head = 5_090n
+    const { findProjects } = await import('./chain')
+    await findProjects()
+    const first = state.logRanges.length
+    expect(first).toBeGreaterThan(1)
+
+    state.head = 5_095n
+    state.logRanges = []
+    await findProjects()
+    expect(state.logRanges).toEqual([[5_091n, 5_095n]])
+
+    state.logRanges = []
+    await findProjects() // nothing new: no log requests at all
+    expect(state.logRanges).toEqual([])
+  })
+
+  it('concurrent callers share one scan', async () => {
+    state.head = 5_090n
+    const { findProjects } = await import('./chain')
+    await Promise.all([findProjects(), findProjects(), findProjects()])
+    expect(state.logRanges).toHaveLength(6) // 90..5090 in 1000-block chunks, once
+  })
+
+  // Submissions and reviewers of one vault used to be two separate scans, doubling the requests.
+  it('reads submissions and reviewers of a vault with ONE scan', async () => {
+    state.head = 5_090n
+    const { readSubmissions, readReviewers } = await import('./chain')
+    const vault = '0x269FCAF4d50CFd5346D275A7546cE78fEC29B111'
+    await Promise.all([readSubmissions(vault, 604800), readReviewers(vault)])
+    expect(state.logRanges).toHaveLength(6) // not 12
+  })
 })

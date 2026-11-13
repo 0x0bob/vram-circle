@@ -71,6 +71,22 @@ Screenshot: `docs/screenshots/08-arc-testnet-project.png`.
 Found by this check: the public RPC returned HTTP 429 when the page sent about a dozen separate `eth_call` requests.
 Fixed with JSON-RPC batching and slower polling on public RPCs (regression test `batching.test.ts`).
 
-## Live URL check (after merge)
+## Live URL check (after merge, 2026-11-13)
 
-Pending: to be recorded after the PR is merged and Vercel deploys `main`.
+`https://vram-circle.vercel.app` (Vercel, production = `main`) returns 200 for `/` and for the deep link
+`/p/0x269f...b111` (SPA rewrite works), and the owner confirmed it loads.
+
+A headless-browser check of production found a real problem that the owner's click-through did not: the project page showed
+"Cannot read the chain: Request exceeds defined limit". Cause: the event scan ran from the deploy block in 1,000-block chunks.
+Arc makes about 1.9 blocks per second, so nine hours after deploy that was about 60 sequential `eth_getLogs` per scan, repeated by
+every poll, against a public RPC that answers more than about 4 requests per second with `-32005 rate limit exceeded`.
+Measured limits of `https://rpc.testnet.arc.io`: `eth_getLogs` range must be under 20,000 blocks (10,000 works, 20,000 does not),
+batches of 50 JSON-RPC calls are accepted, and a burst of about 4 requests in a row starts failing.
+
+Fix (regression tests first, `step-3c-design`): 9,000-block chunks, incremental scans (only new blocks after the first scan,
+concurrent callers share one), one merged scan per vault, 300ms spacing between log requests, backoff that retries the same
+chunk on a rate limit instead of halving it, and 6 transport retries. Result against the real chain: project page loads in about
+3 seconds with 12 HTTP requests, then about 11 requests per 45 seconds of polling.
+
+Remaining limitation: the first scan still walks every block since the deploy (about 170,000 more blocks per day, so about 19 more
+requests per day on a first visit). Fine for testnet; the indexer is the real fix.

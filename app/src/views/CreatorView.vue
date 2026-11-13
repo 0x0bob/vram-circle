@@ -24,13 +24,21 @@ const fmt = (v: bigint) => `${formatUsdc(v, protocol.decimals)} USDC`
 // ---------------------------------------------------------------- projects
 const myProjects = ref<Address[]>([])
 const selected = ref<Address | null>(null)
+/** Reading the chain failed. The list is kept as it was, never emptied: that would look like losing the project. */
+const projectsLoadFailed = ref(false)
 
 async function loadProjects(selectLast = false) {
   if (!address.value) {
     myProjects.value = []
     return
   }
-  myProjects.value = await findProjects(address.value).catch(() => [])
+  try {
+    myProjects.value = await findProjects(address.value)
+    projectsLoadFailed.value = false
+  } catch {
+    projectsLoadFailed.value = true
+    return
+  }
   if (selectLast || !selected.value || !myProjects.value.includes(selected.value)) {
     selected.value = myProjects.value[myProjects.value.length - 1] ?? null
   }
@@ -214,6 +222,10 @@ async function withdraw() {
     <!-- ------------------------------------------------ projects -->
     <section class="card">
       <h2>Your projects</h2>
+      <p v-if="projectsLoadFailed" class="note" data-testid="projects-error">
+        Could not load your projects. The network is probably busy.
+        <button class="secondary" data-testid="projects-retry" @click="loadProjects()">Retry</button>
+      </p>
       <div v-if="myProjects.length" class="row">
         <div>
           <label for="proj">Selected project</label>
@@ -223,7 +235,7 @@ async function withdraw() {
         </div>
         <router-link v-if="selected" :to="`/p/${selected}`" style="flex: 0 0 auto">Public page</router-link>
       </div>
-      <p v-else class="muted">You have no projects yet. Create your first one below.</p>
+      <p v-else-if="!projectsLoadFailed" class="muted">You have no projects yet. Create your first one below.</p>
 
       <h2 style="margin-top: 1.25rem">Create a project</h2>
       <label for="meta">Description or metadata URI</label>

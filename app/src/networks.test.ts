@@ -39,3 +39,15 @@ describe('pollInterval', () => {
     expect(pollInterval(ARC_TESTNET, 4000)).toBe(16000)
   })
 })
+
+describe('logChunk', () => {
+  it('keeps Arc testnet scans under its 10,000-block eth_getLogs cap', () => {
+    expect(ARC_TESTNET.logChunk).toBeLessThan(10_000)
+    expect(ARC_TESTNET.logChunk).toBeGreaterThanOrEqual(5_000)
+  })
+
+  it('spaces log requests on Arc testnet (about 4 requests per second is the public limit) but not locally', () => {
+    expect(ARC_TESTNET.logGapMs).toBeGreaterThanOrEqual(250)
+    expect(LOCAL.logGapMs).toBe(0)
+  })
+})

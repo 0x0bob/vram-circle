@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased: Step 3c (design, RPC scan hardening)
+
+- New look: white canvas, black ink, neon-green accent as fills and highlights, Space Grotesk / Inter / JetBrains Mono,
+  hero with facts the contracts enforce, network pill in the header, new favicon. No behaviour change.
+- Fix: production showed "Request exceeds defined limit". Event scans are now incremental and shared, merged per vault, paced
+  (300ms between log requests on Arc testnet), back off on rate limits without halving the chunk, and use 9,000-block chunks.
+  Regression tests: `chain.test.ts`, `paginate.test.ts`, `pacer.test.ts`, `pacing.test.ts`, `batching.test.ts`.
+- Fix (reported by the owner from a real MetaMask session on Arc testnet): after creating a project the app said "None yet" because a
+  rate-limited project load was swallowed. Load failures now show "Could not load your projects" with Retry and never empty the
+  list. Wallet/RPC errors are readable: rate limit -> "public Arc RPC is busy, wait"; wallet code 4100 -> "unlock and connect the account".
+- `docs/testnet-smoke.md`: live URL check and measured RPC limits.
+
 ## Unreleased: Step 3b (Arc testnet)
 
 - Arc testnet values (chain 5042002, RPC, explorer, USDC `0x3600...0000`) replace the `TODO(verify)` markers, cited
