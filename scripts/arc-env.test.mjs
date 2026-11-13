@@ -17,6 +17,8 @@ test('maps a testnet deployment record to the static build environment', () => {
     VITE_FACTORY_ADDRESS: good.factory,
     VITE_USDC_ADDRESS: good.usdc,
     VITE_DEPLOY_BLOCK: '71995003',
+    // the same Vercel project serves /api (upload, agent), so the browser may call it
+    VITE_API_ENABLED: '1',
   })
 })
 

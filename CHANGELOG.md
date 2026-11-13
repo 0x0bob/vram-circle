@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased: Step 4 (quality agent v0, storage API)
+
+- `/api` (Vercel functions) and `/agent` (pure core), read-only towards contracts, no key any contract trusts:
+  `POST /api/upload` (task instructions and submissions to a private Vercel Blob store, content addressed), `GET /api/content`
+  (specs public; submissions only for the creator, reviewers and the contributor, by wallet signature), `POST /api/screen`,
+  `GET /api/advice` (creator and reviewers only).
+- Every reader re-hashes content against the on-chain hash (upload API, content API, agent, reviewer UI) and warns on a mismatch;
+  the agent does not score content that does not match. The storage is trusted only to keep files available.
+- Checks, all advice: hash match, format and length, copy detection between submissions of the same task (word bigrams), an
+  injection heuristic, and optional AI scoring (Claude Haiku 5.5 by default, structured output, fixed rubric `rubric-v1`).
+  Submission text is untrusted data: fixed system prompt, per-request random delimiter, no tools, strict output schema.
+  Attack-answer tests prove a score only comes from the validated model output; a live-model test (skipped without a key) covers
+  model behaviour and has not been run yet.
+- Per-IP rate limits and a shared daily spend and call cap (fails closed). No key means non-AI checks only.
+- Every result is stored for audit (checks, score, reasons, model, prompt version, usage, time) and shown in the reviewer queue
+  as "Agent advice". Contributors upload their answer from the task page; creators upload instructions with the task.
+- CI `api` job (typecheck, unit tests, integration test against real contracts on Anvil). `vercel.json` installs root and app.
+- CLAUDE.md: storage row and agent row in section 6; new known risks in section 11. `docs/agent.md` has the design, env vars
+  and RPC provider advice.
+
 ## Unreleased: Step 3c (design, RPC scan hardening)
 
 - New look: white canvas, black ink, neon-green accent as fills and highlights, Space Grotesk / Inter / JetBrains Mono,

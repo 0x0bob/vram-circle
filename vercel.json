@@ -1,8 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "npm ci --prefix app",
+  "installCommand": "npm ci && npm ci --prefix app",
   "buildCommand": "node scripts/build-arc-testnet.mjs",
   "outputDirectory": "app/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/screen.ts": {
+      "maxDuration": 60
+    }
+  }
 }

@@ -9,11 +9,14 @@ import { projectVaultAbi } from '../generated/abis'
 import { hashText, isBytes32 } from '../lib/hash'
 import { formatUsdc } from '../lib/format'
 import { formatDate } from '../lib/status'
+import { useTxStore } from '../stores/tx'
+import { apiEnabled, fetchSpec, uploadText, type FileStatus } from '../services/agentApi'
 
 const props = defineProps<{ vault: string; taskId: string }>()
 const { vault, valid, project } = useProjectRoute(() => props.vault)
 const protocol = useProtocolStore()
 const { send } = useTx()
+const txStore = useTxStore()
 const { address } = useConnection()
 
 const task = computed(() => project.taskById.get(Number(props.taskId)) ?? null)
@@ -28,6 +31,19 @@ const specText = computed(() => {
     return null
   }
 })
+
+// Instructions fetched from storage by the on-chain spec hash and verified against it.
+const fetchedSpec = ref<{ status: FileStatus; text: string | null } | null>(null)
+watch(
+  () => task.value?.specHash,
+  async (h) => {
+    fetchedSpec.value = null
+    if (apiEnabled && h && !specText.value) {
+      fetchedSpec.value = await fetchSpec(h).catch(() => ({ status: 'unavailable' as const, text: null }))
+    }
+  },
+  { immediate: true },
+)
 
 const allowed = ref(false)
 const mineCount = ref(0)
@@ -66,8 +82,23 @@ function hashFromText() {
 }
 const hashValid = computed(() => isBytes32(contentHash.value))
 
+/** With the storage API the contributor just writes the answer: it is uploaded, and the verified hash and URI are used. */
+const canSubmit = computed(() => (apiEnabled ? content.value.trim().length > 0 : hashValid.value && !!uri.value))
+
 async function submit() {
-  if (!vault.value || !task.value || !hashValid.value) return
+  if (!vault.value || !task.value || !canSubmit.value) return
+  if (apiEnabled) {
+    let hash = contentHash.value
+    let where = uri.value
+    const stored = await txStore.track('Upload your answer', async () => {
+      const r = await uploadText('submission', content.value) // throws if the service hashed different bytes
+      hash = r.hash
+      where = r.uri
+    })
+    if (!stored) return
+    contentHash.value = hash
+    uri.value = where
+  }
   const ok = await send(`Submit work to task ${task.value.id}`, {
     address: vault.value,
     abi: projectVaultAbi,
@@ -100,6 +131,12 @@ async function submit() {
       </p>
       <h2>Spec</h2>
       <pre v-if="specText" class="hash" style="white-space: pre-wrap">{{ specText }}</pre>
+      <template v-else-if="fetchedSpec && fetchedSpec.status !== 'unavailable'">
+        <p v-if="fetchedSpec.status === 'mismatch'" class="banner warn" style="margin: 0" data-testid="spec-mismatch">
+          ⚠ These instructions do not match the spec hash stored on-chain. Do not rely on them.
+        </p>
+        <pre v-if="fetchedSpec.status === 'match'" class="hash" style="white-space: pre-wrap" data-testid="spec-text">{{ fetchedSpec.text }}</pre>
+      </template>
       <p v-else class="note">Spec hash <code class="hash">{{ task.specHash }}</code> (the text is published off-chain by the creator).</p>
     </section>
 
@@ -107,15 +144,25 @@ async function submit() {
       <h2>Submit work</h2>
       <p v-if="blocker" class="banner warn" style="margin: 0" data-testid="submit-blocker">{{ blocker }}</p>
       <template v-else>
-        <label for="content">Content (optional: paste it to compute the hash here, in your browser)</label>
-        <textarea id="content" v-model="content" rows="4" data-testid="content-input" />
-        <button class="secondary" type="button" @click="hashFromText">Hash this content</button>
-        <label for="hash">Content hash (bytes32)</label>
-        <input id="hash" v-model="contentHash" placeholder="0x…" data-testid="hash-input" />
-        <label for="uri">Where the content is stored (URI)</label>
-        <input id="uri" v-model="uri" placeholder="ipfs://…" data-testid="uri-input" />
+        <template v-if="apiEnabled">
+          <label for="content">Your answer</label>
+          <textarea id="content" v-model="content" rows="6" data-testid="content-input" />
+          <p class="note">
+            Your answer is stored by VRAM and only its hash goes on-chain. Only the project creator, its reviewers and you can read it.
+            The storage is trusted only to keep the file available: anyone can check it against the on-chain hash.
+          </p>
+        </template>
+        <template v-else>
+          <label for="content">Content (optional: paste it to compute the hash here, in your browser)</label>
+          <textarea id="content" v-model="content" rows="4" data-testid="content-input" />
+          <button class="secondary" type="button" @click="hashFromText">Hash this content</button>
+          <label for="hash">Content hash (bytes32)</label>
+          <input id="hash" v-model="contentHash" placeholder="0x…" data-testid="hash-input" />
+          <label for="uri">Where the content is stored (URI)</label>
+          <input id="uri" v-model="uri" placeholder="ipfs://…" data-testid="uri-input" />
+        </template>
         <p style="margin-top: 0.9rem">
-          <button :disabled="!hashValid || !uri" data-testid="submit-work" @click="submit">Submit (sign in wallet)</button>
+          <button :disabled="!canSubmit" data-testid="submit-work" @click="submit">Submit (sign in wallet)</button>
         </p>
       </template>
     </section>

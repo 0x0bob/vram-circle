@@ -56,3 +56,38 @@ describe('ReviewQueue', () => {
     expect(w.get('[data-testid=approve-1]').attributes('disabled')).toBeDefined()
   })
 })
+
+describe('ReviewQueue: agent advice (advice only)', () => {
+  it('shows no agent controls when the agent API is not available', () => {
+    const w = mount(ReviewQueue, { props: { submissions: [sub(1, NOW + 100n)], now: NOW } })
+    expect(w.find('[data-testid=open-details-1]').exists()).toBe(false)
+  })
+
+  it('offers to open content and advice per submission, and emits open', async () => {
+    const w = mount(ReviewQueue, { props: { submissions: [sub(5, NOW + 100n)], now: NOW, agentEnabled: true } })
+    await w.get('[data-testid=open-details-5]').trigger('click')
+    expect(w.emitted('open')).toEqual([[5]])
+  })
+
+  it('shows the verified content and the agent advice once opened, and re-emits screen', async () => {
+    const details = {
+      5: { content: { status: 'match', text: 'the answer' }, advice: null, loading: false },
+    }
+    const w = mount(ReviewQueue, { props: { submissions: [sub(5, NOW + 100n)], now: NOW, agentEnabled: true, details } as never })
+    expect(w.get('[data-testid=content-5]').text()).toBe('the answer')
+    await w.get('[data-testid=agent-run-5]').trigger('click')
+    expect(w.emitted('screen')).toEqual([[5]])
+  })
+
+  it('does not change the decision buttons: approve and reject stay human, and are enabled regardless of any score', () => {
+    const details = {
+      5: {
+        content: { status: 'match', text: 'x' },
+        advice: { ai: { status: 'ok', score: 3, reasons: ['bad'], injectionSuspected: false, model: 'm', promptVersion: 'v', usage: { input: 1, output: 1 }, truncated: false }, checks: { hash: { status: 'match' }, instructions: { status: 'match' }, format: null, injectionSuspected: false, copies: [] }, adviceOnly: true, createdAt: '' },
+        loading: false,
+      },
+    }
+    const w = mount(ReviewQueue, { props: { submissions: [sub(5, NOW + 100n)], now: NOW, agentEnabled: true, details } as never })
+    expect(w.get('[data-testid=approve-5]').attributes('disabled')).toBeUndefined()
+  })
+})
