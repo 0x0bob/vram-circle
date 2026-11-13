@@ -137,7 +137,7 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install (root: /api and /agent)
+      - name: Install dependencies for /api and /agent
         run: npm ci
 
       - name: Typecheck
